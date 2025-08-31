@@ -56,16 +56,57 @@ const getTodayOrders = async () => {
     const startOfDayUTC = startOfDay.utc().toDate();
     const endOfDayUTC = endOfDay.utc().toDate();
     
-    // Query orders created today (assuming orders have a createdAt timestamp)
-    const snapshot = await db
+    console.log('Sri Lankan time:', now.format('YYYY-MM-DD HH:mm:ss'));
+    console.log('Start of day (SL):', startOfDay.format('YYYY-MM-DD HH:mm:ss'));
+    console.log('End of day (SL):', endOfDay.format('YYYY-MM-DD HH:mm:ss'));
+    console.log('Start of day (UTC):', startOfDayUTC);
+    console.log('End of day (UTC):', endOfDayUTC);
+    
+    // Try the timezone-aware query first
+    let snapshot = await db
       .collection(COLLECTION_NAME)
-      .where("createdAt", ">=", startOfDayUTC)
-      .where("createdAt", "<=", endOfDayUTC)
-      .orderBy("createdAt", "desc")
+      .where("date", ">=", startOfDayUTC)
+      .where("date", "<=", endOfDayUTC)
+      .orderBy("date", "desc")
       .get();
     
-    const orders = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-    return orders;
+    console.log('Timezone query results count:', snapshot.docs.length);
+    
+    // If no results, try a broader approach - get orders from the last 24 hours
+    if (snapshot.docs.length === 0) {
+      const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      console.log('Trying 24-hour fallback from:', twentyFourHoursAgo);
+      
+      snapshot = await db
+        .collection(COLLECTION_NAME)
+        .where("date", ">=", twentyFourHoursAgo)
+        .orderBy("date", "desc")
+        .get();
+      
+      console.log('24-hour fallback results count:', snapshot.docs.length);
+    }
+    
+    // If still no results, try a simple date string comparison
+    if (snapshot.docs.length === 0) {
+      const todayString = now.format('YYYY-MM-DD');
+      console.log('Trying date string comparison for:', todayString);
+      
+      // Get all orders and filter by date string
+      const allSnapshot = await db.collection(COLLECTION_NAME).get();
+      const filteredDocs = allSnapshot.docs.filter(doc => {
+        const orderDate = doc.data().date;
+        if (orderDate) {
+          const orderDateString = new Date(orderDate).toISOString().split('T')[0];
+          return orderDateString === todayString;
+        }
+        return false;
+      });
+      
+      console.log('Date string filter results count:', filteredDocs.length);
+      snapshot = { docs: filteredDocs };
+    }
+    
+    return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
   } catch (error) {
     console.error("Error fetching today's orders:", error);
     throw new Error("Error fetching today's orders");
