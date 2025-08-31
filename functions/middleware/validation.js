@@ -79,7 +79,7 @@ const createOrderSchema = Joi.object({
       "string.empty": "Payment method is required",
       "any.only": "Payment method must be one of: COD, CASH, ANOTHER",
     }),
-});
+}).unknown(false); // Prevent additional fields like orderNumber, status, createdAt
 
 const updateOrderSchema = Joi.object({
   fullName: Joi.string().trim().min(2).max(100).optional().messages({

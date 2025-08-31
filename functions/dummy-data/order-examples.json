@@ -105,10 +105,11 @@
   ],
   "curlExamples": {
     "createOrder": "curl -X POST http://127.0.0.1:5001/your-project-id/us-central1/api/orders \\\n  -H \"Content-Type: application/json\" \\\n  -d '{INSERT_ORDER_DATA_HERE}'",
-    "getAllOrders": "curl -X GET http://127.0.0.1:5001/your-project-id/us-central1/api/orders",
-    "updateOrder": "curl -X PUT http://127.0.0.1:5001/your-project-id/us-central1/api/orders/{orderId} \\\n  -H \"Content-Type: application/json\" \\\n  -d '{INSERT_UPDATE_DATA_HERE}'"
+    "getAllOrders": "curl -X GET http://127.0.0.1/your-project-id/us-central1/api/orders",
+    "updateOrder": "curl -X PUT http://127.0.0.1/your-project-id/us-central1/api/orders/{orderId} \\\n  -H \"Content-Type: application/json\" \\\n  -d '{INSERT_UPDATE_DATA_HERE}'"
   },
   "fieldDescriptions": {
+    "orderNumber": "Auto-generated unique order number in format YYYYMM## (e.g., 20250801, 20250802) - automatically assigned",
     "fullName": "Customer's full name (2-100 characters, required)",
     "address": "Complete delivery address (10-500 characters, required)",
     "province": "Province/State (2-50 characters, required)",
@@ -120,6 +121,8 @@
     "total": "Total order amount (positive number with max 2 decimal places, required)",
     "deliverService": "Delivery service name (2-50 characters, required)",
     "date": "Order date (ISO format, required)",
-    "paymentMethod": "Payment method - must be one of: COD, CASH, ANOTHER (required)"
+    "paymentMethod": "Payment method - must be one of: COD, CASH, ANOTHER (required)",
+    "status": "Order status (automatically set to 'pending' for new orders)",
+    "createdAt": "Timestamp when the order was created (automatically set)"
   }
 }

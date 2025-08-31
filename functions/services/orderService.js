@@ -6,15 +6,273 @@ const timezone = require("dayjs/plugin/timezone");
 dayjs.extend(utc);
 dayjs.extend(timezone);
 
+// Ensure Firebase Admin is initialized
+if (!admin.apps.length) {
+  try {
+    const serviceAccount = require("../keys/serviceAccountKey.json");
+    admin.initializeApp({
+      credential: admin.credential.cert(serviceAccount),
+    });
+    console.log("Firebase Admin initialized in orderService");
+  } catch (error) {
+    console.error("Failed to initialize Firebase Admin in orderService:", error.message);
+    // Continue without initialization - it might be initialized elsewhere
+  }
+}
+
+// Debug Firebase Admin initialization
+console.log("Firebase Admin initialized:", !!admin);
+console.log("Firebase Admin version:", admin.SDK_VERSION);
+console.log("Firestore available:", !!admin.firestore);
+console.log("FieldValue available:", !!admin.firestore.FieldValue);
+
 const db = admin.firestore();
+const FieldValue = admin.firestore.FieldValue;
+
+console.log("FieldValue imported:", !!FieldValue);
+console.log("FieldValue.serverTimestamp available:", !!(FieldValue && FieldValue.serverTimestamp));
+
+// Test database connection
+const testDatabaseConnection = async () => {
+  try {
+    // Try to access a collection to test the connection
+    const testRef = db.collection('_test_connection');
+    await testRef.limit(1).get();
+    console.log("✅ Database connection successful");
+    return true;
+  } catch (error) {
+    console.error("❌ Database connection failed:", error.message);
+    return false;
+  }
+};
+
+// Test the connection when the module loads
+testDatabaseConnection().then(isConnected => {
+  if (!isConnected) {
+    console.warn("⚠️ Database connection test failed - some operations may not work");
+  }
+});
 
 const COLLECTION_NAME = "orders";
+const COUNTER_COLLECTION = "counters";
+
+// Helper function to get server timestamp or fallback to current date
+const getServerTimestamp = () => {
+  try {
+    // First try: use FieldValue.serverTimestamp if available
+    if (FieldValue && FieldValue.serverTimestamp) {
+      console.log("Using FieldValue.serverTimestamp()");
+      return FieldValue.serverTimestamp();
+    }
+    
+    // Second try: use admin.firestore.FieldValue.serverTimestamp directly
+    if (admin.firestore && admin.firestore.FieldValue && admin.firestore.FieldValue.serverTimestamp) {
+      console.log("Using admin.firestore.FieldValue.serverTimestamp()");
+      return admin.firestore.FieldValue.serverTimestamp();
+    }
+    
+    // Third try: use a different approach with admin.firestore
+    if (admin.firestore) {
+      try {
+        const directFieldValue = admin.firestore.FieldValue;
+        if (directFieldValue && directFieldValue.serverTimestamp) {
+          console.log("Using direct admin.firestore.FieldValue.serverTimestamp()");
+          return directFieldValue.serverTimestamp();
+        }
+      } catch (directError) {
+        console.warn("Direct FieldValue access failed:", directError.message);
+      }
+    }
+    
+    // Fallback: use current date
+    console.log("All FieldValue methods failed, using current date");
+    return new Date();
+    
+  } catch (error) {
+    console.warn("Error in getServerTimestamp, using current date:", error.message);
+    return new Date();
+  }
+};
+
+// Alternative timestamp function for when FieldValue is completely unavailable
+const getAlternativeTimestamp = () => {
+  try {
+    // Try to create a Firestore-compatible timestamp
+    if (admin.firestore && admin.firestore.Timestamp) {
+      return admin.firestore.Timestamp.now();
+    }
+    
+    // Fallback to regular Date
+    return new Date();
+  } catch (error) {
+    console.warn("Error in getAlternativeTimestamp, using current date:", error.message);
+    return new Date();
+  }
+};
+
+// Function to generate auto-incrementing order number
+const generateOrderNumber = async () => {
+  try {
+    // Get current date in Sri Lankan timezone
+    const now = dayjs().tz("Asia/Colombo");
+    const yearMonth = now.format("YYYYMM");
+    
+    console.log(`Generating order number for month: ${yearMonth}`);
+    
+    // Reference to the counter document for this month
+    const counterRef = db.collection(COUNTER_COLLECTION).doc(yearMonth);
+    
+    // Use a transaction to safely increment the counter
+    const result = await db.runTransaction(async (transaction) => {
+      try {
+        const counterDoc = await transaction.get(counterRef);
+        
+        let currentCount = 1;
+        if (counterDoc.exists) {
+          const counterData = counterDoc.data();
+          if (counterData && counterData.count) {
+            currentCount = counterData.count + 1;
+            console.log(`Existing counter found: ${counterData.count}, incrementing to: ${currentCount}`);
+          } else {
+            console.log(`Counter document exists but no count field, starting from: ${currentCount}`);
+          }
+        } else {
+          console.log(`No counter document found for ${yearMonth}, creating new counter starting from: ${currentCount}`);
+        }
+        
+        // Update the counter
+        transaction.set(counterRef, { 
+          count: currentCount,
+          lastUpdated: getServerTimestamp()
+        });
+        
+        return currentCount;
+      } catch (transactionError) {
+        console.error("Transaction error in generateOrderNumber:", transactionError);
+        throw transactionError;
+      }
+    });
+    
+    // Format: YYYYMM + padded order number (e.g., 20250801, 20250802)
+    const orderNumber = `${yearMonth}${result.toString().padStart(2, '0')}`;
+    console.log(`Successfully generated order number: ${orderNumber}`);
+    return orderNumber;
+  } catch (error) {
+    console.error("Error generating order number:", error);
+    console.error("Error details:", {
+      message: error.message,
+      code: error.code,
+      stack: error.stack
+    });
+    
+    // If it's a transaction error, try a simpler approach
+    if (error.code === 'FAILED_PRECONDITION' || error.code === 'ABORTED') {
+      console.log("Transaction failed, trying alternative approach...");
+      return await generateOrderNumberAlternative();
+    }
+    
+    throw new Error(`Error generating order number: ${error.message}`);
+  }
+};
+
+// Alternative approach if transaction fails
+const generateOrderNumberAlternative = async () => {
+  try {
+    const now = dayjs().tz("Asia/Colombo");
+    const yearMonth = now.format("YYYYMM");
+    
+    console.log(`Using alternative method for month: ${yearMonth}`);
+    
+    const counterRef = db.collection(COUNTER_COLLECTION).doc(yearMonth);
+    
+    // Try to get the current counter
+    const counterDoc = await counterRef.get();
+    
+    let currentCount = 1;
+    if (counterDoc.exists) {
+      const counterData = counterDoc.data();
+      if (counterData && counterData.count) {
+        currentCount = counterData.count + 1;
+      }
+    }
+    
+    // Update the counter (this is not atomic but should work for most cases)
+          await counterRef.set({ 
+        count: currentCount,
+        lastUpdated: getServerTimestamp()
+      });
+    
+    const orderNumber = `${yearMonth}${currentCount.toString().padStart(2, '0')}`;
+    console.log(`Alternative method generated order number: ${orderNumber}`);
+    return orderNumber;
+  } catch (alternativeError) {
+    console.error("Alternative method also failed:", alternativeError);
+    throw new Error(`Failed to generate order number with both methods: ${alternativeError.message}`);
+  }
+};
+
+// Function to initialize counter for a specific month (useful for testing or manual setup)
+const initializeCounter = async (yearMonth = null) => {
+  try {
+    const now = dayjs().tz("Asia/Colombo");
+    const targetMonth = yearMonth || now.format("YYYYMM");
+    
+    console.log(`Initializing counter for month: ${targetMonth}`);
+    
+    const counterRef = db.collection(COUNTER_COLLECTION).doc(targetMonth);
+    
+    // Check if counter already exists
+    const existingCounter = await counterRef.get();
+    if (existingCounter.exists) {
+      const data = existingCounter.data();
+      console.log(`Counter already exists for ${targetMonth}:`, data);
+      return data;
+    }
+    
+    // Initialize counter starting from 0
+    const initialData = {
+      count: 0,
+      lastUpdated: getServerTimestamp(),
+      initialized: true
+    };
+    
+    await counterRef.set(initialData);
+    console.log(`Successfully initialized counter for ${targetMonth}:`, initialData);
+    
+    return initialData;
+  } catch (error) {
+    console.error(`Error initializing counter for ${yearMonth}:`, error);
+    throw new Error(`Failed to initialize counter: ${error.message}`);
+  }
+}; 
 
 const createOrder = async (orderData) => {
   try {
+    // Generate the order number first
+    let orderNumber;
+    try {
+      orderNumber = await generateOrderNumber();
+    } catch (orderNumberError) {
+      console.error("Failed to generate order number, using fallback:", orderNumberError);
+      
+      // Fallback: create a simple timestamp-based order number
+      const now = dayjs().tz("Asia/Colombo");
+      const timestamp = now.valueOf();
+      orderNumber = `FALLBACK${timestamp}`;
+      console.log(`Using fallback order number: ${orderNumber}`);
+    }
+    
     const orderRef = db.collection(COLLECTION_NAME).doc();
-    await orderRef.set({ ...orderData, status: "pending" });
-    return { id: orderRef.id, ...orderData, status: "pending" };
+    const orderWithNumber = { 
+      ...orderData, 
+      orderNumber,
+      status: "pending",
+      createdAt: getServerTimestamp()
+    };
+    
+    await orderRef.set(orderWithNumber);
+    console.log(`Order created successfully with order number: ${orderNumber}`);
+    return { id: orderRef.id, ...orderWithNumber };
   } catch (error) {
     console.error("Error creating order:", error);
     throw new Error("Error creating order");
@@ -115,4 +373,11 @@ const getTodayOrders = async () => {
   }
 };
 
-module.exports = { createOrder, getAllOrders, updateOrder, getTodayOrders };
+module.exports = { 
+  createOrder, 
+  getAllOrders, 
+  updateOrder, 
+  getTodayOrders,
+  initializeCounter,
+  generateOrderNumber
+};
