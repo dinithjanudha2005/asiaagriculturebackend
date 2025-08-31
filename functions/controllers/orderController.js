@@ -1,9 +1,9 @@
-const { orderService } = require("../services/orderService");
+const { createOrder: createOrderService, getAllOrders: getAllOrdersService, updateOrder: updateOrderService, getTodayOrders: getTodayOrdersService } = require("../services/orderService");
 
 const createOrder = async (req, res) => {
   try {
     const orderData = req.body;
-    const result = await orderService.createOrder(orderData);
+    const result = await createOrderService(orderData);
     return res.status(201).json({
       success: true,
       message: "Order created successfully",
@@ -20,7 +20,7 @@ const createOrder = async (req, res) => {
 
 const getAllOrders = async (req, res) => {
   try {
-    const orders = await orderService.getAllOrders();
+    const orders = await getAllOrdersService();
     return res.status(200).json({
       success: true,
       message: "Orders retrieved successfully",
@@ -41,7 +41,7 @@ const updateOrder = async (req, res) => {
     const { orderId } = req.params;
     const updateData = req.body;
     
-    const result = await orderService.updateOrder(orderId, updateData);
+    const result = await updateOrderService(orderId, updateData);
     return res.status(200).json({
       success: true,
       message: "Order updated successfully",
@@ -56,4 +56,22 @@ const updateOrder = async (req, res) => {
   }
 };
 
-module.exports = { createOrder, getAllOrders, updateOrder };
+const getTodayOrders = async (req, res) => {
+  try {
+    const orders = await getTodayOrdersService();
+    return res.status(200).json({
+      success: true,
+      message: "Today's orders retrieved successfully",
+      data: orders,
+      count: orders.length
+    });
+  } catch (error) {
+    console.error("Error in getTodayOrders controller:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Failed to retrieve today's orders"
+    });
+  }
+};
+
+module.exports = { createOrder, getAllOrders, updateOrder, getTodayOrders };

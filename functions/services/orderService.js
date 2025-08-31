@@ -1,4 +1,10 @@
 const admin = require("firebase-admin");
+const dayjs = require("dayjs");
+const utc = require("dayjs/plugin/utc");
+const timezone = require("dayjs/plugin/timezone");
+
+dayjs.extend(utc);
+dayjs.extend(timezone);
 
 const db = admin.firestore();
 
@@ -37,4 +43,33 @@ const updateOrder = async (orderId, updateData) => {
   }
 };
 
-module.exports = { createOrder, getAllOrders, updateOrder };
+const getTodayOrders = async () => {
+  try {
+    // Get current time in Sri Lankan timezone
+    const now = dayjs().tz("Asia/Colombo");
+    
+    // Get start and end of day in Sri Lankan timezone
+    const startOfDay = now.startOf("day");
+    const endOfDay = now.endOf("day");
+    
+    // Convert to UTC for Firestore query
+    const startOfDayUTC = startOfDay.utc().toDate();
+    const endOfDayUTC = endOfDay.utc().toDate();
+    
+    // Query orders created today (assuming orders have a createdAt timestamp)
+    const snapshot = await db
+      .collection(COLLECTION_NAME)
+      .where("createdAt", ">=", startOfDayUTC)
+      .where("createdAt", "<=", endOfDayUTC)
+      .orderBy("createdAt", "desc")
+      .get();
+    
+    const orders = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+    return orders;
+  } catch (error) {
+    console.error("Error fetching today's orders:", error);
+    throw new Error("Error fetching today's orders");
+  }
+};
+
+module.exports = { createOrder, getAllOrders, updateOrder, getTodayOrders };
