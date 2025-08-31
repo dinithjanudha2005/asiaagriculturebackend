@@ -373,11 +373,99 @@ const getTodayOrders = async () => {
   }
 };
 
+// Function to handle product returns
+const createReturnDocument = async (returnData) => {
+  try {
+    const { orderId, dateSent, dateReturn, reason, deliverCharge, productCost } = returnData;
+    
+    // Validate required fields
+    if (!orderId || !dateReturn || !reason) {
+      throw new Error("orderId, dateReturn, and reason are required fields");
+    }
+    
+    // Create return document structure
+    const returnDocument = {
+      orderId: orderId,
+      dateSent: dateSent || null,
+      dateReturn: dateReturn,
+      reason: reason,
+      deliverCharge: deliverCharge || "0",
+      productCost: productCost || "5000",
+      status: "returned",
+      createdAt: getServerTimestamp(),
+      updatedAt: getServerTimestamp()
+    };
+    
+    // Store in returns collection
+    const returnRef = db.collection("returns").doc();
+    await returnRef.set(returnDocument);
+    
+    // Update the original order status to "returned"
+    const orderRef = db.collection(COLLECTION_NAME).doc(orderId);
+    await orderRef.update({
+      status: "returned",
+      returnId: returnRef.id,
+      updatedAt: getServerTimestamp()
+    });
+    
+    console.log(`Return document created successfully for order: ${orderId}`);
+    return { id: returnRef.id, ...returnDocument };
+  } catch (error) {
+    console.error("Error creating return document:", error);
+    throw new Error(`Error creating return document: ${error.message}`);
+  }
+};
+
+// Function to get all returns
+const getAllReturns = async () => {
+  try {
+    const snapshot = await db.collection("returns").orderBy("createdAt", "desc").get();
+    const returns = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+    return returns;
+  } catch (error) {
+    console.error("Error fetching returns:", error);
+    throw new Error("Error fetching returns");
+  }
+};
+
+// Function to get returns by order ID
+const getReturnsByOrderId = async (orderId) => {
+  try {
+    const snapshot = await db.collection("returns").where("orderId", "==", orderId).get();
+    const returns = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+    return returns;
+  } catch (error) {
+    console.error("Error fetching returns by order ID:", error);
+    throw new Error("Error fetching returns by order ID");
+  }
+};
+
+// Function to update return document
+const updateReturn = async (returnId, updateData) => {
+  try {
+    const returnRef = db.collection("returns").doc(returnId);
+    const updatePayload = {
+      ...updateData,
+      updatedAt: getServerTimestamp()
+    };
+    
+    await returnRef.update(updatePayload);
+    return { id: returnId, ...updatePayload };
+  } catch (error) {
+    console.error("Error updating return:", error);
+    throw new Error("Error updating return");
+  }
+};
+
 module.exports = { 
   createOrder, 
   getAllOrders, 
   updateOrder, 
   getTodayOrders,
   initializeCounter,
-  generateOrderNumber
+  generateOrderNumber,
+  createReturnDocument,
+  getAllReturns,
+  getReturnsByOrderId,
+  updateReturn
 };

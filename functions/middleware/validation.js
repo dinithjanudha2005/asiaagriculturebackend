@@ -161,6 +161,63 @@ const updateOrderSchema = Joi.object({
     }),
 });
 
+// Return validation schemas
+const createReturnSchema = Joi.object({
+  orderId: Joi.string().trim().min(1).required().messages({
+    "string.empty": "Order ID is required",
+    "string.min": "Order ID must not be empty",
+  }),
+
+  dateSent: Joi.date().iso().optional().allow(null).messages({
+    "date.base": "Date sent must be a valid date",
+    "date.format": "Date sent must be in ISO format",
+  }),
+
+  dateReturn: Joi.date().iso().required().messages({
+    "date.base": "Date return is required and must be a valid date",
+    "date.format": "Date return must be in ISO format",
+  }),
+
+  reason: Joi.string().trim().min(5).max(500).required().messages({
+    "string.empty": "Return reason is required",
+    "string.min": "Return reason must be at least 5 characters long",
+    "string.max": "Return reason cannot exceed 500 characters",
+  }),
+
+  deliverCharge: Joi.string().trim().optional().allow("").default("0").messages({
+    "string.base": "Delivery charge must be a string",
+  }),
+
+  productCost: Joi.string().trim().optional().allow("").default("5000").messages({
+    "string.base": "Product cost must be a string",
+  }),
+}).unknown(false);
+
+const updateReturnSchema = Joi.object({
+  dateSent: Joi.date().iso().optional().allow(null).messages({
+    "date.base": "Date sent must be a valid date",
+    "date.format": "Date sent must be in ISO format",
+  }),
+
+  dateReturn: Joi.date().iso().optional().messages({
+    "date.base": "Date return must be a valid date",
+    "date.format": "Date return must be in ISO format",
+  }),
+
+  reason: Joi.string().trim().min(5).max(500).optional().messages({
+    "string.min": "Return reason must be at least 5 characters long",
+    "string.max": "Return reason cannot exceed 500 characters",
+  }),
+
+  deliverCharge: Joi.string().trim().optional().allow("").messages({
+    "string.base": "Delivery charge must be a string",
+  }),
+
+  productCost: Joi.string().trim().optional().allow("").messages({
+    "string.base": "Product cost must be a string",
+  }),
+});
+
 // Validation middleware functions
 const validateCreateOrder = (req, res, next) => {
   const { error } = createOrderSchema.validate(req.body);
@@ -184,7 +241,31 @@ const validateUpdateOrder = (req, res, next) => {
   next();
 };
 
+const validateCreateReturn = (req, res, next) => {
+  const { error } = createReturnSchema.validate(req.body);
+  if (error) {
+    return res.status(400).json({
+      success: false,
+      message: error.details[0].message,
+    });
+  }
+  next();
+};
+
+const validateUpdateReturn = (req, res, next) => {
+  const { error } = updateReturnSchema.validate(req.body);
+  if (error) {
+    return res.status(400).json({
+      success: false,
+      message: error.details[0].message,
+    });
+  }
+  next();
+};
+
 module.exports = {
   validateCreateOrder,
   validateUpdateOrder,
+  validateCreateReturn,
+  validateUpdateReturn,
 };

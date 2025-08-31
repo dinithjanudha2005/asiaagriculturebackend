@@ -1,0 +1,69 @@
+{
+  "returnExamples": [
+    {
+      "id": "return_123",
+      "orderId": "order_456",
+      "dateSent": "2024-01-15T10:00:00.000Z",
+      "dateReturn": "2024-01-20T14:30:00.000Z",
+      "reason": "Customer changed mind, product not needed anymore",
+      "deliverCharge": "500",
+      "productCost": "5000",
+      "status": "returned",
+      "createdAt": "2024-01-20T14:30:00.000Z",
+      "updatedAt": "2024-01-20T14:30:00.000Z"
+    },
+    {
+      "id": "return_124",
+      "orderId": "order_789",
+      "dateSent": "2024-01-18T09:00:00.000Z",
+      "dateReturn": "2024-01-22T16:45:00.000Z",
+      "reason": "Product damaged during delivery, customer refused to accept",
+      "deliverCharge": "0",
+      "productCost": "5000",
+      "status": "returned",
+      "createdAt": "2024-01-22T16:45:00.000Z",
+      "updatedAt": "2024-01-22T16:45:00.000Z"
+    },
+    {
+      "id": "return_125",
+      "orderId": "order_101",
+      "dateSent": null,
+      "dateReturn": "2024-01-25T11:20:00.000Z",
+      "reason": "Wrong product delivered, customer ordered different item",
+      "deliverCharge": "300",
+      "productCost": "5000",
+      "status": "returned",
+      "createdAt": "2024-01-25T11:20:00.000Z",
+      "updatedAt": "2024-01-25T11:20:00.000Z"
+    }
+  ],
+  "returnDocumentStructure": {
+    "description": "Return document structure for when a product is returned",
+    "fields": {
+      "id": "Auto-generated unique identifier for the return document",
+      "orderId": "ID of the original order that is being returned (required)",
+      "dateSent": "Date when the product was originally sent (optional, can be null)",
+      "dateReturn": "Date when the product was returned (required)",
+      "reason": "Reason for the return (required, min 5 chars, max 500 chars)",
+      "deliverCharge": "Delivery charge amount (optional, defaults to '0')",
+      "productCost": "Product cost amount (optional, defaults to '5000')",
+      "status": "Status of the return (always 'returned')",
+      "createdAt": "Timestamp when return document was created",
+      "updatedAt": "Timestamp when return document was last updated"
+    },
+    "apiEndpoints": {
+      "createReturn": "POST /orders/returns",
+      "getAllReturns": "GET /orders/returns",
+      "getReturnsByOrderId": "GET /orders/returns/order/:orderId",
+      "updateReturn": "PUT /orders/returns/:returnId"
+    },
+    "validation": {
+      "required": ["orderId", "dateReturn", "reason"],
+      "optional": ["dateSent", "deliverCharge", "productCost"],
+      "defaults": {
+        "deliverCharge": "0",
+        "productCost": "5000"
+      }
+    }
+  }
+}

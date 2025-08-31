@@ -1,4 +1,4 @@
-const { createOrder: createOrderService, getAllOrders: getAllOrdersService, updateOrder: updateOrderService, getTodayOrders: getTodayOrdersService } = require("../services/orderService");
+const { createOrder: createOrderService, getAllOrders: getAllOrdersService, updateOrder: updateOrderService, getTodayOrders: getTodayOrdersService, createReturnDocument: createReturnDocumentService, getAllReturns: getAllReturnsService, getReturnsByOrderId: getReturnsByOrderIdService, updateReturn: updateReturnService } = require("../services/orderService");
 
 const createOrder = async (req, res) => {
   try {
@@ -74,4 +74,92 @@ const getTodayOrders = async (req, res) => {
   }
 };
 
-module.exports = { createOrder, getAllOrders, updateOrder, getTodayOrders };
+// Create return document
+const createReturn = async (req, res) => {
+  try {
+    const returnData = req.body;
+    const result = await createReturnDocumentService(returnData);
+    return res.status(201).json({
+      success: true,
+      message: "Return document created successfully",
+      data: result
+    });
+  } catch (error) {
+    console.error("Error in createReturn controller:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Failed to create return document"
+    });
+  }
+};
+
+// Get all returns
+const getAllReturns = async (req, res) => {
+  try {
+    const returns = await getAllReturnsService();
+    return res.status(200).json({
+      success: true,
+      message: "Returns retrieved successfully",
+      data: returns,
+      count: returns.length
+    });
+  } catch (error) {
+    console.error("Error in getAllReturns controller:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Failed to retrieve returns"
+    });
+  }
+};
+
+// Get returns by order ID
+const getReturnsByOrderId = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const returns = await getReturnsByOrderIdService(orderId);
+    return res.status(200).json({
+      success: true,
+      message: "Returns retrieved successfully",
+      data: returns,
+      count: returns.length
+    });
+  } catch (error) {
+    console.error("Error in getReturnsByOrderId controller:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Failed to retrieve returns"
+    });
+  }
+};
+
+// Update return document
+const updateReturn = async (req, res) => {
+  try {
+    const { returnId } = req.params;
+    const updateData = req.body;
+    
+    const result = await updateReturnService(returnId, updateData);
+    return res.status(200).json({
+      success: true,
+      message: "Return updated successfully",
+      data: result
+    });
+  } catch (error) {
+    console.error("Error in updateReturn controller:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Failed to update return"
+    });
+  }
+};
+
+module.exports = { 
+  createOrder, 
+  getAllOrders, 
+  updateOrder, 
+  getTodayOrders,
+  createReturn,
+  getAllReturns,
+  getReturnsByOrderId,
+  updateReturn
+};
