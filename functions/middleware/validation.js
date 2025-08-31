@@ -184,12 +184,16 @@ const createReturnSchema = Joi.object({
     "string.max": "Return reason cannot exceed 500 characters",
   }),
 
-  deliverCharge: Joi.string().trim().optional().allow("").default("0").messages({
-    "string.base": "Delivery charge must be a string",
+  deliverCharge: Joi.number().positive().precision(2).required().messages({
+    "number.base": "Delivery charge must be a number",
+    "number.positive": "Delivery charge must be a positive number",
+    "number.precision": "Delivery charge can have maximum 2 decimal places",
   }),
 
-  productCost: Joi.string().trim().optional().allow("").default("5000").messages({
-    "string.base": "Product cost must be a string",
+  productCost: Joi.number().positive().precision(2).optional().allow("").default(5000).messages({
+    "number.base": "Product cost must be a number",
+    "number.positive": "Product cost must be a positive number",
+    "number.precision": "Product cost can have maximum 2 decimal places",
   }),
 }).unknown(false);
 
