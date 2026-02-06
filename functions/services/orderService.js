@@ -279,9 +279,14 @@ const createOrder = async (orderData) => {
   }
 };
 
-const getAllOrders = async () => {
+const getAllOrders = async (options = {}) => {
   try {
-    const snapshot = await db.collection(COLLECTION_NAME).get();
+    const { limit = 100 } = options;
+    let query = db.collection(COLLECTION_NAME).orderBy("createdAt", "desc");
+    if (limit > 0) {
+      query = query.limit(limit);
+    }
+    const snapshot = await query.get();
     const orders = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
     return orders;
   } catch (error) {
