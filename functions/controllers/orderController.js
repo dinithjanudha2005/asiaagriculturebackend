@@ -20,7 +20,8 @@ const createOrder = async (req, res) => {
 
 const getAllOrders = async (req, res) => {
   try {
-    const orders = await getAllOrdersService();
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 100, 1), 500);
+    const orders = await getAllOrdersService({ limit });
     return res.status(200).json({
       success: true,
       message: "Orders retrieved successfully",
